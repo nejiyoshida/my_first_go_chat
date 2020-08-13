@@ -1,0 +1,65 @@
+<html>
+    <head>
+        <title> Go chat</title>
+        <style>
+            input { display: block; }
+            ul { list-style: none; }
+        </style>
+    </head>
+    <body>
+        <ul id="messages"></ul>
+        ソケット通信を利用したチャット
+    <form id="chatbox">
+      {{.UserData.name}}:<br/>
+      <textarea></textarea>
+      <input type="submit" value="送信" />
+    </form>
+
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js">
+    </script>
+    <script>
+      $(function(){
+        var socket = null;
+        // html上の各要素の値を取得
+        var msgBox = $("#chatbox textarea");
+        var messages = $("#messages");
+        // 送信実行時の処理。接続されてなければalertが出るし、されていたら送信してメッセージボックスを空にする
+        $("#chatbox").submit(function(){
+          if (!msgBox.val()) return false;
+          if (!socket) {
+            alert("エラー: WebSocket接続が行われていません。");
+            return false;
+          }
+          //socket.send(msgBox.val());
+          socket.send(JSON.stringify({"Message": msgBox.val()}));
+
+          msgBox.val("");
+          return false;
+        });
+        if (!window["WebSocket"]) {
+          alert("エラー: WebSocketに対応していないブラウザです。")
+        } else {
+          //socket = new WebSocket("ws://localhost:8080/room");
+          // .Hostは、r.Hostのこと。
+          socket = new WebSocket("ws://{{.Host}}/room");
+          // oncloseとonmessageはイベントハンドラ。socketに対し下記のイベントが発行された場合に実行される感じ
+          socket.onclose = function() {
+            alert("接続が終了しました。");
+          }
+          // メッセージを受けたときに動くやつ
+          socket.onmessage = function(e) {
+            //messages.append($("<li>").text(e.data));
+            var msg = JSON.parse(e.data)
+            messages.append(
+              $("<li>").append(
+                $("<strong>").text(msg.Name + " : "),
+                $("<span>").text(msg.Message)
+              )
+            );
+          }
+        }
+      });
+    </script>
+    
+    </body>
+</html>
