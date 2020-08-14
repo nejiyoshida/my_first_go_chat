@@ -69,16 +69,41 @@ func main() {
 		facebook.New(config.ID["facebook"], config.Secret["facebook"], "http://localhost:8080/auth/callback/facebook"),
 	)
 
-	r := newRoom()
+	// avatar.goの中で宣言されたUseAuthAvatarは、メモリ上に生成されてないので余分にメモリを消費しない
+	//r := newRoom(UseAuthAvatar)
+	//r := newRoom(UseGravatar)
+	r := newRoom(UseFileSystemAvatar)
 	r.tracer = trace.New(os.Stdout)
 	//http.Handle("/", &templateHandler{filename: "chat.html"})
 	http.Handle("/chat", MustAuth(&templateHandler{filename: "chat.html"}))
 	http.Handle("/login", &templateHandler{filename: "login.html"})
 	http.Handle("/room", r)                 // room構造体はserveHTTPを実装しているので、Handlerに登録できる
 	http.HandleFunc("/auth/", loginHandler) // 構造体にServeHTTPを実装する以外に、シグネチャの一致する関数をHandleFuncで登録可能
-	go r.run()                              // goroutineとしてチャットルーム処理の起動
+	http.HandleFunc("/logout", logoutHandler)
+	http.Handle("/upload", &templateHandler{filename: "upload.html"})
+	http.HandleFunc("/uploader", uploadHandler)
+
+	// StripPrefixで /avatars/ 以降を取り出すハンドラを作る
+	// http.FileServeは静的ファイルの提供とか、一覧の作成とか
+	// http.Dirは公開するフォルダを指定。
+	http.Handle("/avatars/",
+		http.StripPrefix("/avatars/",
+			http.FileServer(http.Dir("./avatars"))))
+
+	go r.run() // goroutineとしてチャットルーム処理の起動
 	log.Println("サーバを起動します。ポート：", *addr)
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatal("ListenAndServe :", err)
 	}
+}
+
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:   "auth",
+		Value:  "", // cookieが消えない場合のために空文字で上書き
+		Path:   "/",
+		MaxAge: -1, // MaxAgeが-1なのでcookieが消える(おおよそのブラウザで)
+	})
+	w.Header()["Location"] = []string{"/chat"}
+	w.WriteHeader(http.StatusTemporaryRedirect)
 }

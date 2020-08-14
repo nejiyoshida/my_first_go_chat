@@ -20,7 +20,8 @@ func (c *client) read() {
 		if err := c.socket.ReadJSON(&msg); err == nil {
 			msg.When = time.Now()
 			msg.Name = c.userData["name"].(string)
-			c.room.forward <- msg // 他のクライアントに投げる
+			msg.AvatarURL, _ = c.room.avatar.GetAvatarURL(c)
+			c.room.forward <- msg // 同じ部屋に参加している他のクライアントに投げる
 		} else {
 			break
 		}
